@@ -377,6 +377,8 @@ server <- function(input, output) {
         #Resolution
         res = 25
         
+        withProgress(message = 'Making plot...', value = 0, {
+        
         #conditions, compliance
         matrix1= fill_matrix(par,"conditions","compliance",res,intervention_effectiveness_actual)
         p1= ggplot()+
@@ -388,6 +390,8 @@ server <- function(input, output) {
             theme_classic()
         # p1
         
+        incProgress(1/15, detail = "Generating Plot 1")
+        
         #conditions, R0
         matrix2= fill_matrix(par,"conditions","R0",res,intervention_effectiveness_actual)
         p2= ggplot()+
@@ -398,6 +402,7 @@ server <- function(input, output) {
             xlab(expression(R[0]))+ylab("Baseline conditions")+
             theme_classic()
         # p2
+        incProgress(1/15, detail = "Generating Plot 2")
         
         #conditions, completeness
         matrix3= fill_matrix(par,"conditions","completeness",res,intervention_effectiveness_actual)
@@ -409,6 +414,7 @@ server <- function(input, output) {
             xlab("Intervenable fraction")+ylab("Baseline conditions")+
             theme_classic()
         # p3
+        incProgress(1/15, detail = "Generating Plot 3")
         
         #conditions, efficacy
         matrix4= fill_matrix(par,"conditions","efficacy",res,intervention_effectiveness_actual)
@@ -420,6 +426,7 @@ server <- function(input, output) {
             xlab("Efficacy")+ylab("Baseline conditions")+
             theme_classic()
         # p4
+        incProgress(1/15, detail = "Generating Plot 4")
         
         #conditions, coverage
         matrix5= fill_matrix(par,"conditions","coverage",res,intervention_effectiveness_actual)
@@ -432,7 +439,7 @@ server <- function(input, output) {
             theme_classic()
         # p5
         
-        
+        incProgress(1/15, detail = "Generating Plot 5")
         
         #compliance, R0
         matrix6= fill_matrix(par,"compliance","R0",res,intervention_effectiveness_actual)
@@ -444,6 +451,7 @@ server <- function(input, output) {
             xlab(expression(R[0]))+ylab("Compliance")+
             theme_classic()
         # p6
+        incProgress(1/15, detail = "Generating Plot 6")
         
         #compliance, completeness
         matrix7= fill_matrix(par,"compliance","completeness",res,intervention_effectiveness_actual)
@@ -455,6 +463,7 @@ server <- function(input, output) {
             xlab("Intervenable fraction")+ylab("Compliance")+
             theme_classic()
         # p7
+        incProgress(1/15, detail = "Generating Plot 7")
         
         #compliance, efficacy
         matrix8= fill_matrix(par,"compliance","efficacy",res,intervention_effectiveness_actual)
@@ -466,6 +475,7 @@ server <- function(input, output) {
             xlab("Efficacy")+ylab("Compliance")+
             theme_classic()
         # p8
+        incProgress(1/15, detail = "Generating Plot 8")
         
         #compliance, coverage
         matrix9= fill_matrix(par,"compliance","coverage",res,intervention_effectiveness_actual)
@@ -477,6 +487,7 @@ server <- function(input, output) {
             xlab("Coverage fraction")+ylab("Compliance")+
             theme_classic()
         # p9
+        incProgress(1/15, detail = "Generating Plot 9")
         
         #R0, completeness
         matrix10= fill_matrix(par,"R0","completeness",res,intervention_effectiveness_actual)
@@ -488,6 +499,7 @@ server <- function(input, output) {
             xlab("Intervenable fraction")+ylab(expression(R[0]))+
             theme_classic()
         # p10
+        incProgress(1/15, detail = "Generating Plot 10")
         
         #R0, efficacy
         matrix11= fill_matrix(par,"R0","efficacy",res,intervention_effectiveness_actual)
@@ -499,6 +511,7 @@ server <- function(input, output) {
             xlab("Efficacy")+ylab(expression(R[0]))+
             theme_classic()
         # p11
+        incProgress(1/15, detail = "Generating Plot 11")
         
         #R0, coverage
         matrix12= fill_matrix(par,"R0","coverage",res,intervention_effectiveness_actual)
@@ -510,6 +523,7 @@ server <- function(input, output) {
             xlab("Coverage fraction")+ylab(expression(R[0]))+
             theme_classic()
         # p12
+        incProgress(1/15, detail = "Generating Plot 12")
         
         #completeness, efficacy
         matrix13= fill_matrix(par,"completeness","efficacy",res,intervention_effectiveness_actual)
@@ -521,6 +535,7 @@ server <- function(input, output) {
             xlab("Efficacy")+ylab("Intervenable fraction")+
             theme_classic()
         # p13
+        incProgress(1/15, detail = "Generating Plot 13")
         
         #completeness, coverage
         matrix14= fill_matrix(par,"completeness","coverage",res,intervention_effectiveness_actual)
@@ -532,6 +547,7 @@ server <- function(input, output) {
             xlab("Coverage fraction")+ylab("Intervenable fraction")+
             theme_classic()
         # p14
+        incProgress(1/15, detail = "Generating Plot 14")
         
         #efficacy, coverage
         matrix15= fill_matrix(par,"efficacy","coverage",res,intervention_effectiveness_actual)
@@ -543,6 +559,9 @@ server <- function(input, output) {
             xlab("Coverage fraction")+ylab("Efficacy")+
             theme_classic()
         # p15
+        incProgress(1/15, detail = "Generating Plot 15")
+        
+        })
         
         #Can we put a loading bar to indicate % of graphs calculated?
         
