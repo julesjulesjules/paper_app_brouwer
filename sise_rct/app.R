@@ -186,7 +186,10 @@ ui <- fluidPage(
                         "What percent of the population is included in the intervention?",
                         min = 0,
                         max = 100,
-                        value = 11, post = "%")
+                        value = 11, post = "%"), 
+            radioButtons("make_plot", 
+                         "Run sensitivity analysis?",
+                         choices = list("Yes", "No"),selected = "No")
             
         ),
 
@@ -198,7 +201,10 @@ ui <- fluidPage(
            br(), 
            html("{{{{{{{{{{{{{{ I think we should possibly add a descriptor paragraph here, or some additional information of some sort. }}}}}}}}}}}}}"),
            br(),
-           plotOutput("main_matrix", height = "800px")
+           conditionalPanel(
+               condition = "input.make_plot == 'Yes'",
+               plotOutput("main_matrix", height = "800px")
+           )
         )
     )
 )
@@ -346,229 +352,234 @@ server <- function(input, output) {
     
     output$main_matrix <- renderPlot({
         
-        validate(
-            need(input$par_intervention_compliance > input$par_baseline_condition, 'Intervention compliance must be greater than baseline conditions.'), 
-            need(input$R0 >= 1 & input$R0 <= 1.5, "Basic reproduction number needs to be between 1 and 1.5."), 
-            need(input$R0_ratio >= 0 & input$R0_ratio <= 1, "Intervenable fraction needs to be between 0 and 1")
-        )
+        breaks <- input$make_plot
+        if (breaks == "Yes") {
         
-        par = c(as.numeric(input$par_baseline_condition)/100, 
-                as.numeric(input$par_intervention_compliance)/100,
-                as.numeric(input$R0), 
-                as.numeric(input$R0_ratio), 
-                (1-as.numeric(input$flag))*as.numeric(input$efficacy)/100,  
-                as.numeric(input$flag)*as.numeric(input$efficacy)/100, 
-                as.numeric(input$coverage)/100)
+                validate(
+                    need(input$par_intervention_compliance > input$par_baseline_condition, 'Intervention compliance must be greater than baseline conditions.'), 
+                    need(input$R0 >= 1 & input$R0 <= 1.5, "Basic reproduction number needs to be between 1 and 1.5."), 
+                    need(input$R0_ratio >= 0 & input$R0_ratio <= 1, "Intervenable fraction needs to be between 0 and 1")
+                )
+                
+                
+                par = c(as.numeric(input$par_baseline_condition)/100, 
+                        as.numeric(input$par_intervention_compliance)/100,
+                        as.numeric(input$R0), 
+                        as.numeric(input$R0_ratio), 
+                        (1-as.numeric(input$flag))*as.numeric(input$efficacy)/100,  
+                        as.numeric(input$flag)*as.numeric(input$efficacy)/100, 
+                        as.numeric(input$coverage)/100)
+                
+                #Baseline control
+                prev_control = simulate(c(par[1:6],0))
+                #Baseline intervention
+                prev_intervention = simulate(par)
+                #Baseline max intervention
+                prev_intervention_max = simulate(c(par[1],1,par[3:4],(1-as.numeric(input$flag)),as.numeric(input$flag),par[7]))
+                
+                relative_risk_actual = prev_intervention/prev_control
+                intervention_effectiveness_actual = 1- relative_risk_actual
+                
         
-        #Baseline control
-        prev_control = simulate(c(par[1:6],0))
-        #Baseline intervention
-        prev_intervention = simulate(par)
-        #Baseline max intervention
-        prev_intervention_max = simulate(c(par[1],1,par[3:4],(1-as.numeric(input$flag)),as.numeric(input$flag),par[7]))
-        
-        relative_risk_actual = prev_intervention/prev_control
-        intervention_effectiveness_actual = 1- relative_risk_actual
-        
-
-        #conditions, compliance, R0, R0_1/R0, efficacy, coverage
-        col_limits = 100*c(0-intervention_effectiveness_actual,1-intervention_effectiveness_actual)
-        
-        #Resolution
-        res = 25
-        
-        withProgress(message = 'Making plot...', value = 0, {
-        
-        #conditions, compliance
-        matrix1= fill_matrix(par,"conditions","compliance",res,intervention_effectiveness_actual)
-        p1= ggplot()+
-            geom_raster(data=matrix1, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[2],y=par[1],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Compliance")+ylab("Baseline conditions")+
-            theme_classic()
-        # p1
-        
-        incProgress(1/15, detail = "Generating Plot 1")
-        
-        #conditions, R0
-        matrix2= fill_matrix(par,"conditions","R0",res,intervention_effectiveness_actual)
-        p2= ggplot()+
-            geom_raster(data=matrix2, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[3],y=par[1],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab(expression(R[0]))+ylab("Baseline conditions")+
-            theme_classic()
-        # p2
-        incProgress(1/15, detail = "Generating Plot 2")
-        
-        #conditions, completeness
-        matrix3= fill_matrix(par,"conditions","completeness",res,intervention_effectiveness_actual)
-        p3= ggplot()+
-            geom_raster(data=matrix3, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[4],y=par[1],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Intervenable fraction")+ylab("Baseline conditions")+
-            theme_classic()
-        # p3
-        incProgress(1/15, detail = "Generating Plot 3")
-        
-        #conditions, efficacy
-        matrix4= fill_matrix(par,"conditions","efficacy",res,intervention_effectiveness_actual)
-        p4= ggplot()+
-            geom_raster(data=matrix4, aes(x=x,y=y,fill=value))+
-            annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[1],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Efficacy")+ylab("Baseline conditions")+
-            theme_classic()
-        # p4
-        incProgress(1/15, detail = "Generating Plot 4")
-        
-        #conditions, coverage
-        matrix5= fill_matrix(par,"conditions","coverage",res,intervention_effectiveness_actual)
-        p5= ggplot()+
-            geom_raster(data=matrix5, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[7],y=par[1],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Coverage fraction")+ylab("Baseline conditions")+
-            theme_classic()
-        # p5
-        
-        incProgress(1/15, detail = "Generating Plot 5")
-        
-        #compliance, R0
-        matrix6= fill_matrix(par,"compliance","R0",res,intervention_effectiveness_actual)
-        p6= ggplot()+
-            geom_raster(data=matrix6, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[3],y=par[2],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab(expression(R[0]))+ylab("Compliance")+
-            theme_classic()
-        # p6
-        incProgress(1/15, detail = "Generating Plot 6")
-        
-        #compliance, completeness
-        matrix7= fill_matrix(par,"compliance","completeness",res,intervention_effectiveness_actual)
-        p7= ggplot()+
-            geom_raster(data=matrix7, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[4],y=par[2],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Intervenable fraction")+ylab("Compliance")+
-            theme_classic()
-        # p7
-        incProgress(1/15, detail = "Generating Plot 7")
-        
-        #compliance, efficacy
-        matrix8= fill_matrix(par,"compliance","efficacy",res,intervention_effectiveness_actual)
-        p8= ggplot()+
-            geom_raster(data=matrix8, aes(x=x,y=y,fill=value))+
-            annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[2],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Efficacy")+ylab("Compliance")+
-            theme_classic()
-        # p8
-        incProgress(1/15, detail = "Generating Plot 8")
-        
-        #compliance, coverage
-        matrix9= fill_matrix(par,"compliance","coverage",res,intervention_effectiveness_actual)
-        p9= ggplot()+
-            geom_raster(data=matrix9, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[7],y=par[2],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Coverage fraction")+ylab("Compliance")+
-            theme_classic()
-        # p9
-        incProgress(1/15, detail = "Generating Plot 9")
-        
-        #R0, completeness
-        matrix10= fill_matrix(par,"R0","completeness",res,intervention_effectiveness_actual)
-        p10= ggplot()+
-            geom_raster(data=matrix10, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[4],y=par[3],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Intervenable fraction")+ylab(expression(R[0]))+
-            theme_classic()
-        # p10
-        incProgress(1/15, detail = "Generating Plot 10")
-        
-        #R0, efficacy
-        matrix11= fill_matrix(par,"R0","efficacy",res,intervention_effectiveness_actual)
-        p11= ggplot()+
-            geom_raster(data=matrix11, aes(x=x,y=y,fill=value))+
-            annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[3],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Efficacy")+ylab(expression(R[0]))+
-            theme_classic()
-        # p11
-        incProgress(1/15, detail = "Generating Plot 11")
-        
-        #R0, coverage
-        matrix12= fill_matrix(par,"R0","coverage",res,intervention_effectiveness_actual)
-        p12= ggplot()+
-            geom_raster(data=matrix12, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[7],y=par[3],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Coverage fraction")+ylab(expression(R[0]))+
-            theme_classic()
-        # p12
-        incProgress(1/15, detail = "Generating Plot 12")
-        
-        #completeness, efficacy
-        matrix13= fill_matrix(par,"completeness","efficacy",res,intervention_effectiveness_actual)
-        p13= ggplot()+
-            geom_raster(data=matrix13, aes(x=x,y=y,fill=value))+
-            annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[4],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Efficacy")+ylab("Intervenable fraction")+
-            theme_classic()
-        # p13
-        incProgress(1/15, detail = "Generating Plot 13")
-        
-        #completeness, coverage
-        matrix14= fill_matrix(par,"completeness","coverage",res,intervention_effectiveness_actual)
-        p14= ggplot()+
-            geom_raster(data=matrix14, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[7],y=par[4],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Coverage fraction")+ylab("Intervenable fraction")+
-            theme_classic()
-        # p14
-        incProgress(1/15, detail = "Generating Plot 14")
-        
-        #efficacy, coverage
-        matrix15= fill_matrix(par,"efficacy","coverage",res,intervention_effectiveness_actual)
-        p15= ggplot()+
-            geom_raster(data=matrix15, aes(x=x,y=y,fill=value))+
-            annotate("point",x=par[7],y=c(par[5],par[6])[as.numeric(input$flag)+1],pch=19,col="white",size=3)+
-            scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
-            guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
-            xlab("Coverage fraction")+ylab("Efficacy")+
-            theme_classic()
-        # p15
-        incProgress(1/15, detail = "Generating Plot 15")
-        
-        })
-        
-        #Can we put a loading bar to indicate % of graphs calculated?
-        
-        p=ggarrange(p1,p2,p3,p4,p5,NULL,p6,p7,p8,p9,NULL,NULL,p10,p11,p12,NULL,NULL,NULL,
-                    p13,p14,NULL,NULL,NULL,NULL,p15,ncol=5,nrow=5,common.legend = TRUE)
-        
-        return(p)
+                #conditions, compliance, R0, R0_1/R0, efficacy, coverage
+                col_limits = 100*c(0-intervention_effectiveness_actual,1-intervention_effectiveness_actual)
+                
+                #Resolution
+                res = 25
+                
+                withProgress(message = 'Making plot...', value = 0, {
+                
+                #conditions, compliance
+                matrix1= fill_matrix(par,"conditions","compliance",res,intervention_effectiveness_actual)
+                p1= ggplot()+
+                    geom_raster(data=matrix1, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[2],y=par[1],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Compliance")+ylab("Baseline conditions")+
+                    theme_classic()
+                # p1
+                
+                incProgress(1/15, detail = "Generating Plot 1")
+                
+                #conditions, R0
+                matrix2= fill_matrix(par,"conditions","R0",res,intervention_effectiveness_actual)
+                p2= ggplot()+
+                    geom_raster(data=matrix2, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[3],y=par[1],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab(expression(R[0]))+ylab("Baseline conditions")+
+                    theme_classic()
+                # p2
+                incProgress(1/15, detail = "Generating Plot 2")
+                
+                #conditions, completeness
+                matrix3= fill_matrix(par,"conditions","completeness",res,intervention_effectiveness_actual)
+                p3= ggplot()+
+                    geom_raster(data=matrix3, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[4],y=par[1],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Intervenable fraction")+ylab("Baseline conditions")+
+                    theme_classic()
+                # p3
+                incProgress(1/15, detail = "Generating Plot 3")
+                
+                #conditions, efficacy
+                matrix4= fill_matrix(par,"conditions","efficacy",res,intervention_effectiveness_actual)
+                p4= ggplot()+
+                    geom_raster(data=matrix4, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[1],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Efficacy")+ylab("Baseline conditions")+
+                    theme_classic()
+                # p4
+                incProgress(1/15, detail = "Generating Plot 4")
+                
+                #conditions, coverage
+                matrix5= fill_matrix(par,"conditions","coverage",res,intervention_effectiveness_actual)
+                p5= ggplot()+
+                    geom_raster(data=matrix5, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[7],y=par[1],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Coverage fraction")+ylab("Baseline conditions")+
+                    theme_classic()
+                # p5
+                
+                incProgress(1/15, detail = "Generating Plot 5")
+                
+                #compliance, R0
+                matrix6= fill_matrix(par,"compliance","R0",res,intervention_effectiveness_actual)
+                p6= ggplot()+
+                    geom_raster(data=matrix6, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[3],y=par[2],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab(expression(R[0]))+ylab("Compliance")+
+                    theme_classic()
+                # p6
+                incProgress(1/15, detail = "Generating Plot 6")
+                
+                #compliance, completeness
+                matrix7= fill_matrix(par,"compliance","completeness",res,intervention_effectiveness_actual)
+                p7= ggplot()+
+                    geom_raster(data=matrix7, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[4],y=par[2],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Intervenable fraction")+ylab("Compliance")+
+                    theme_classic()
+                # p7
+                incProgress(1/15, detail = "Generating Plot 7")
+                
+                #compliance, efficacy
+                matrix8= fill_matrix(par,"compliance","efficacy",res,intervention_effectiveness_actual)
+                p8= ggplot()+
+                    geom_raster(data=matrix8, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[2],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Efficacy")+ylab("Compliance")+
+                    theme_classic()
+                # p8
+                incProgress(1/15, detail = "Generating Plot 8")
+                
+                #compliance, coverage
+                matrix9= fill_matrix(par,"compliance","coverage",res,intervention_effectiveness_actual)
+                p9= ggplot()+
+                    geom_raster(data=matrix9, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[7],y=par[2],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Coverage fraction")+ylab("Compliance")+
+                    theme_classic()
+                # p9
+                incProgress(1/15, detail = "Generating Plot 9")
+                
+                #R0, completeness
+                matrix10= fill_matrix(par,"R0","completeness",res,intervention_effectiveness_actual)
+                p10= ggplot()+
+                    geom_raster(data=matrix10, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[4],y=par[3],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Intervenable fraction")+ylab(expression(R[0]))+
+                    theme_classic()
+                # p10
+                incProgress(1/15, detail = "Generating Plot 10")
+                
+                #R0, efficacy
+                matrix11= fill_matrix(par,"R0","efficacy",res,intervention_effectiveness_actual)
+                p11= ggplot()+
+                    geom_raster(data=matrix11, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[3],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Efficacy")+ylab(expression(R[0]))+
+                    theme_classic()
+                # p11
+                incProgress(1/15, detail = "Generating Plot 11")
+                
+                #R0, coverage
+                matrix12= fill_matrix(par,"R0","coverage",res,intervention_effectiveness_actual)
+                p12= ggplot()+
+                    geom_raster(data=matrix12, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[7],y=par[3],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Coverage fraction")+ylab(expression(R[0]))+
+                    theme_classic()
+                # p12
+                incProgress(1/15, detail = "Generating Plot 12")
+                
+                #completeness, efficacy
+                matrix13= fill_matrix(par,"completeness","efficacy",res,intervention_effectiveness_actual)
+                p13= ggplot()+
+                    geom_raster(data=matrix13, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[4],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Efficacy")+ylab("Intervenable fraction")+
+                    theme_classic()
+                # p13
+                incProgress(1/15, detail = "Generating Plot 13")
+                
+                #completeness, coverage
+                matrix14= fill_matrix(par,"completeness","coverage",res,intervention_effectiveness_actual)
+                p14= ggplot()+
+                    geom_raster(data=matrix14, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[7],y=par[4],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Coverage fraction")+ylab("Intervenable fraction")+
+                    theme_classic()
+                # p14
+                incProgress(1/15, detail = "Generating Plot 14")
+                
+                #efficacy, coverage
+                matrix15= fill_matrix(par,"efficacy","coverage",res,intervention_effectiveness_actual)
+                p15= ggplot()+
+                    geom_raster(data=matrix15, aes(x=x,y=y,fill=value))+
+                    annotate("point",x=par[7],y=c(par[5],par[6])[as.numeric(input$flag)+1],pch=19,col="white",size=3)+
+                    scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
+                    guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
+                    xlab("Coverage fraction")+ylab("Efficacy")+
+                    theme_classic()
+                # p15
+                incProgress(1/15, detail = "Generating Plot 15")
+                
+                })
+                
+                #Can we put a loading bar to indicate % of graphs calculated?
+                
+                p=ggarrange(p1,p2,p3,p4,p5,NULL,p6,p7,p8,p9,NULL,NULL,p10,p11,p12,NULL,NULL,NULL,
+                            p13,p14,NULL,NULL,NULL,NULL,p15,ncol=5,nrow=5,common.legend = TRUE)
+                
+                return(p)
+        }
     })
     
     
