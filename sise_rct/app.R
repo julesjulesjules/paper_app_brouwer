@@ -138,77 +138,81 @@ fill_matrix=function(par0,factor1,factor2,res,intervention_effectiveness_actual)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-
+    tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "style-page.css")),
+    navbarPage(HTML("Change in Intervention Effectiveness"),
     # Application title
-    titlePanel("Change in Intervention Effectiveness"),
-
-    # Sidebar with a slider input for number of bins 
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("par_baseline_condition",
-                        "Baseline conditions. What fraction of population already has WASH infrastructure similar to the intervention?",
-                        min = 0,
-                        max = 100,
-                        value = 25, post = "%"), 
-            sliderInput("par_intervention_compliance",
-                        "Intervention compliance. What fraction of the intervention group receives and uses the already has WASH infrastructure similar to the intervention?",
-                        min = 0,
-                        max = 100,
-                        value = 75, post = "%"), 
-            #Display error if par_intervention_compliance < par_baseline_condition
-            #"Intervention compliance must be greater than baseline conditions.
-            numericInput("R0", 
-                         "Basic reproduction number. Controls the burden of disease. (1 to 1.5)", 
-                         value = 1.25, 
-                         min = 1, 
-                         max = 1.5, 
-                         step = 0.05), 
-            numericInput("R0_ratio", 
-                         "Intervenable fraction. How much of the transmission could be controlled if the intervention was perfectly effective? (0 to 1)", 
-                         value = 0.75, 
-                         min = 0, 
-                         max = 1, 
-                         step = 0.05), 
-            radioButtons("flag", 
-                         "Does the intervention reduce shedding into the environment or transmission from the environment to people?",
-                         choices = list("Shedding" = 0, "Transmission" = 1),selected = 1), 
-            sliderInput("efficacy",
-                        "Intervention efficacy. What percent of shedding/transmission is prevented by the intervention?",
-                        min = 0,
-                        max = 100,
-                        value = 75, post = "%"), 
-            sliderInput("efficacy_beta",
-                        "Efficacy at reducing infection. What percent of potential transmission is prevented by the intervention?",
-                        min = 0,
-                        max = 100,
-                        value = 75, post = "%"), 
-            sliderInput("coverage",
-                        "What percent of the population is included in the intervention?",
-                        min = 0,
-                        max = 100,
-                        value = 11, post = "%"), 
-            radioButtons("make_plot", 
-                         "Run sensitivity analysis?",
-                         choices = list("Yes", "No"),selected = "No")
-            
-        ),
-
-        # Show a plot of the generated distribution
-        mainPanel(
-           plotOutput("dp1"), 
-           br(),
-           gt_output("dp1_table"),
-           br(), 
-           html("{{{{{{{{{{{{{{ I think we should possibly add a descriptor paragraph here, or some additional information of some sort. }}}}}}}}}}}}}"),
-           br(),
-           conditionalPanel(
-               condition = "input.make_plot == 'Yes'",
-               plotOutput("main_matrix", height = "800px")
-           )
-        )
-    )
+    #titlePanel("Change in Intervention Effectiveness"),
+    tabPanel("Intervention Effectiveness Module",
+            # Sidebar with a slider input for number of bins 
+            sidebarLayout(
+                sidebarPanel(id = "module_sidebar",
+                    sliderInput("par_baseline_condition",
+                                "Baseline conditions. What fraction of population already has WASH infrastructure similar to the intervention?",
+                                min = 0,
+                                max = 100,
+                                value = 25, post = "%"), 
+                    sliderInput("par_intervention_compliance",
+                                "Intervention compliance. What fraction of the intervention group receives and uses the already has WASH infrastructure similar to the intervention?",
+                                min = 0,
+                                max = 100,
+                                value = 75, post = "%"), 
+                    #Display error if par_intervention_compliance < par_baseline_condition
+                    #"Intervention compliance must be greater than baseline conditions.
+                    numericInput("R0", 
+                                 "Basic reproduction number. Controls the burden of disease. (1 to 1.5)", 
+                                 value = 1.25, 
+                                 min = 1, 
+                                 max = 1.5, 
+                                 step = 0.05), 
+                    numericInput("R0_ratio", 
+                                 "Intervenable fraction. How much of the transmission could be controlled if the intervention was perfectly effective? (0 to 1)", 
+                                 value = 0.75, 
+                                 min = 0, 
+                                 max = 1, 
+                                 step = 0.05), 
+                    radioButtons("flag", 
+                                 "Does the intervention reduce shedding into the environment or transmission from the environment to people?",
+                                 choices = list("Shedding" = 0, "Transmission" = 1),selected = 1), 
+                    sliderInput("efficacy",
+                                "Intervention efficacy. What percent of shedding/transmission is prevented by the intervention?",
+                                min = 0,
+                                max = 100,
+                                value = 75, post = "%"), 
+                    sliderInput("efficacy_beta",
+                                "Efficacy at reducing infection. What percent of potential transmission is prevented by the intervention?",
+                                min = 0,
+                                max = 100,
+                                value = 75, post = "%"), 
+                    sliderInput("coverage",
+                                "What percent of the population is included in the intervention?",
+                                min = 0,
+                                max = 100,
+                                value = 11, post = "%"), 
+                    radioButtons("make_plot", 
+                                 "Run sensitivity analysis?",
+                                 choices = list("Yes", "No"),selected = "No")
+                    
+                ),
+        
+                # Show a plot of the generated distribution
+                mainPanel(
+                   plotOutput("dp1"), 
+                   br(),
+                   gt_output("dp1_table"),
+                   br(), 
+                   br(),
+                   conditionalPanel(
+                       condition = "input.make_plot == 'Yes'",
+                       plotOutput("main_matrix", height = "800px")
+                   )
+                )
+            )
+        ), # tab
+    tabPanel("About",
+             mainPanel(fluidRow(column(12, includeMarkdown(rmarkdown::render("about.md")))))
+    ) # second tab
 )
-
+)
 # Define server logic required to draw a histogram
 server <- function(input, output) {
 

@@ -1,0 +1,40 @@
+.navbar .navbar-nav {
+    float: right;
+  }
+.navbar .navbar-header {
+    float: left;
+}
+
+/* changes resting font color of nav bar items */
+.navbar-default .navbar-nav > li > a {
+    color: #000000;
+}
+
+.navbar-default .navbar-brand {color: #000000; font-weight: bold;}
+.navbar-default .navbar-brand:hover {color: #000000; font-weight: bold;}
+
+
+body {background-color: #FFFFFF;}
+
+/* changes color of text when hovering over navbar menu */
+.navbar .nav > li.current-menu-item > a, .navbar .nav > li.current-menu-ancestor > a,
+.navbar .nav > li > a:hover, .navbar .nav > li > a:focus {
+    color: #000000;
+    font-weight: bold;
+}
+
+/* turns selected menu tab to white */
+.navbar .navbar-nav > .active > a {
+    background-color: #FFFFFF;
+}
+
+/*----------------------------------------------------------------------------*/
+
+/* side bar fill color and font color */
+#module_sidebar {
+  color: #000000;
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*
