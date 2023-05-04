@@ -209,7 +209,7 @@ ui <- fluidPage(
             )
         ), # tab
     tabPanel("About",
-             mainPanel(fluidRow(column(12, includeMarkdown(rmarkdown::render("about.md")))))
+             mainPanel(fluidRow(column(12, includeMarkdown(rmarkdown::render("about.Rmd")))))
     ) # second tab
 )
 )
