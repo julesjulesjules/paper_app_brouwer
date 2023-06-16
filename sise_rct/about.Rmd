@@ -34,5 +34,6 @@ $$
 
 
 More details on the model are available in Brouwer et al. (2022)
-<https://dx.plos.org/10.1371/journal.pcbi.1010748>
-
+<https://doi.org/10.1371/journal.pcbi.1010748>
+and in Brouwer et al. (2023)
+<https://doi.org/10.1101/2022.11.15.22282349>
