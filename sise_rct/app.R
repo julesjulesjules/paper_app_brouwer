@@ -16,6 +16,7 @@ library(viridis)
 library(gt)
 library(tidyverse)
 library(dplyr)
+library(rmarkdown)
 
 
 model = function(t, x, model_par){
@@ -206,7 +207,7 @@ ui <- fluidPage(
             )
         ), # tab
     tabPanel("About",
-             mainPanel(fluidRow(column(12, includeMarkdown(rmarkdown::render("about.rmd")))))
+             mainPanel(fluidRow(column(12, includeMarkdown(rmarkdown::render("about.Rmd")))))
     ) # second tab
 )
 )
