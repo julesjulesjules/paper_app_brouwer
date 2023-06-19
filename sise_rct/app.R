@@ -17,7 +17,7 @@ library(gt)
 library(tidyverse)
 library(dplyr)
 library(rmarkdown)
-
+library(markdown)
 
 model = function(t, x, model_par){
     
