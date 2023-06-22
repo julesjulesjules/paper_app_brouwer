@@ -18,6 +18,7 @@ library(tidyverse)
 library(dplyr)
 library(rmarkdown)
 library(markdown)
+#library(huxtable)
 
 model = function(t, x, model_par){
     
@@ -297,10 +298,18 @@ server <- function(input, output) {
         #print(data_plot1)
         
         #Display this plot
-        ggplot(data_plot1,aes(x=Arm,y=Prevalence,fill=Transmission))+
-            geom_col()+theme_classic()+ylab("Prevalence (%)")+
-            scale_fill_manual(values=c("grey75","grey25"))+
-          theme(text = element_text(size = 20)) 
+        ggplot(data_plot1,aes(x = Arm, y = Prevalence, fill = Transmission)) +
+            geom_col() +
+            theme_classic() +
+            #ylab("Prevalence (%)")+
+            labs(x = "", 
+                 y = "Prevalence (%)", 
+                 caption = "Simulated infection prevalence and intervention effectiveness in the randomized controlled trial.\nNon-intervenable prevalence is the infection prevalence that would remain with perfect intervention compliance and efficacy.") +
+            scale_fill_manual(values = c("grey75", "grey25")) +
+          theme(axis.text.x = element_text(size = 20), 
+                axis.text.y = element_text(size = 20), 
+                axis.title.x = element_text(size = 20), 
+                axis.title.y = element_text(size = 20)) 
         
     })
     
@@ -594,6 +603,7 @@ server <- function(input, output) {
                             p9,p8,p7,p6,NULL,
                             p5,p4,p3,p2,p1,
                             ncol=5,nrow=5,common.legend = TRUE,legend="top")
+                p <- annotate_figure(p, bottom = "Intervention effectiveness as a function of WASH intervention factors.\nThe heatmaps denote how intervention effectiveness depends on each pair of WASH factors,\ncompared to the original scenario indicated by the white points.")
                 return(p)
         }
     })
