@@ -195,6 +195,7 @@ ui <- fluidPage(
         
                 # Show a plot of the generated distribution
                 mainPanel(
+                  p(strong("Simulated infection prevalence and intervention effectiveness in the randomized controlled trial."), "Non-intervenable prevalence is the infection prevalence that would remain with perfect intervention compliance and efficacy.",style="text-align:left;color:black;background-color:#F5F5F5;padding:15px;border-radius:10px"),
                    plotOutput("dp1"), 
                    br(),
                    gt_output("dp1_table"),
@@ -202,6 +203,7 @@ ui <- fluidPage(
                    br(),
                    conditionalPanel(
                        condition = "input.make_plot == 'Yes'",
+                       p(strong("Intervention effectiveness as a function of WASH intervention factors."), "The heatmaps denote how intervention effectiveness depends on each pair of WASH factors, compared to the original scenario indicated by the white points.",style="text-align:left;color:black;background-color:#F5F5F5;padding:15px;border-radius:10px"),
                        plotOutput("main_matrix", height = "800px")
                    )
                 )
@@ -303,8 +305,7 @@ server <- function(input, output) {
             theme_classic() +
             #ylab("Prevalence (%)")+
             labs(x = "", 
-                 y = "Prevalence (%)", 
-                 caption = "Simulated infection prevalence and intervention effectiveness in the randomized controlled trial.\nNon-intervenable prevalence is the infection prevalence that would remain with perfect intervention compliance and efficacy.") +
+                 y = "Prevalence (%)") +
             scale_fill_manual(values = c("grey75", "grey25")) +
           theme(axis.text.x = element_text(size = 20), 
                 axis.text.y = element_text(size = 20), 
@@ -603,7 +604,7 @@ server <- function(input, output) {
                             p9,p8,p7,p6,NULL,
                             p5,p4,p3,p2,p1,
                             ncol=5,nrow=5,common.legend = TRUE,legend="top")
-                p <- annotate_figure(p, bottom = "Intervention effectiveness as a function of WASH intervention factors.\nThe heatmaps denote how intervention effectiveness depends on each pair of WASH factors,\ncompared to the original scenario indicated by the white points.")
+                #p <- annotate_figure(p, bottom = "Intervention effectiveness as a function of WASH intervention factors.\nThe heatmaps denote how intervention effectiveness depends on each pair of WASH factors,\ncompared to the original scenario indicated by the white points.")
                 return(p)
         }
     })
