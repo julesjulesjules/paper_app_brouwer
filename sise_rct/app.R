@@ -18,67 +18,133 @@ library(tidyverse)
 library(dplyr)
 library(rmarkdown)
 library(markdown)
+library(nleqslv)
 #library(huxtable)
 
-model = function(t, x, model_par){
-    
-    #Effectiveness
-    pi_alpha = model_par[1]
-    pi_beta = model_par[2]
-    #Relative value
-    phi_alpha = 1 - pi_alpha
-    phi_beta = 1 - pi_beta
-    
-    #R0 N = intervenable, O= other
-    R0_N = model_par[3]
-    R0_O = model_par[4]
-    
-    
-    
-    I = x[1]
-    I_N = x[2]
-    
-    S = x[3]
-    S_N = x[4]
-    
-    dxdt = numeric(length(x))
-    dxdt[1]  =  S * ( R0_N * (I + I_N*phi_alpha) + R0_O * (I + I_N)) -  I
-    dxdt[2]  =  S_N * (phi_beta * R0_N * (I + I_N*phi_alpha) + 
-                           R0_O * (I + I_N)) -  I_N
-    
-    dxdt[3] =   I - S * ( R0_N * (I + I_N*phi_alpha) + R0_O * (I + I_N)) 
-    dxdt[4] =   I_N - S_N * (phi_beta * R0_N * (I + I_N*phi_alpha) + 
-                                 R0_O * (I + I_N)) 
-    
-    return(list(dxdt))
-    
+model = function(x, model_par){
+  
+  x= abs(x)
+  
+  #Effectiveness
+  pi_alpha = model_par[1]
+  pi_beta = model_par[2]
+  #Relative value
+  phi_alpha = 1 - pi_alpha
+  phi_beta = 1 - pi_beta
+  
+  #R0 N = intervenable, O= other
+  R0_N = model_par[3]
+  R0_O = model_par[4]
+  
+  par_baseline_condition = model_par[5]
+  par_intervention_compliance = model_par[6]
+  coverage=model_par[7]
+  
+  total_SI = (1-par_baseline_condition)*(1-coverage) + (1-par_intervention_compliance)*coverage
+  total_SI_N = par_baseline_condition*(1-coverage) + par_intervention_compliance * coverage
+  
+  I = x[1]
+  I_N = x[2]
+  
+  S = x[3]
+  S_N = x[4]
+  
+  y = numeric(length(x))
+  y[1]  =  S * ( R0_N * (I + I_N*phi_alpha) + R0_O * (I + I_N)) -  I
+  y[2]  =  S_N * (phi_beta * R0_N * (I + I_N*phi_alpha) + 
+                    R0_O * (I + I_N)) -  I_N
+  
+  y[3] =   I + S - total_SI
+  y[4] =   I_N + S_N - total_SI_N
+  
+  return(y)
+  
 }
 
-simulate = function(par){
-    
-    par_baseline_condition = par[1]
-    par_intervention_compliance = par[2]
-    R0 = par[3]
-    R0_ratio = par[4]
-    efficacy_alpha = par[5]
-    efficacy_beta= par[6]
-    coverage=par[7]
-    
-    rho_vec = c(1-par_intervention_compliance, par_intervention_compliance)
-    baseline_adherence_vec = c(1-par_baseline_condition, par_baseline_condition)
-    
-    prev= 0.06
-    x0 = c(rep(prev,2)*(rho_vec*coverage + baseline_adherence_vec*(1-coverage)),
-           rep(1-prev, 2)*(rho_vec*coverage + baseline_adherence_vec*(1-coverage)))
-    
-    R0_N= R0*R0_ratio
-    R0_O = R0*(1-R0_ratio)
-    model_par = c(efficacy_alpha,efficacy_beta, R0_N,R0_O)
-    out_coverage = ode(x0, times = seq(0,100), model, model_par,method="vode")
-    steady_state = tail(out_coverage[,2:5],1)
-    prevalence  = sum(steady_state[1:2])
-    
-    return(prevalence)
+model_Jac = function(x, model_par){
+  
+  x=abs(x)
+  
+  #Effectiveness
+  pi_alpha = model_par[1]
+  pi_beta = model_par[2]
+  #Relative value
+  phi_alpha = 1 - pi_alpha
+  phi_beta = 1 - pi_beta
+  
+  #R0 N = intervenable, O= other
+  R0_N = model_par[3]
+  R0_O = model_par[4]
+  
+  par_baseline_condition = model_par[5]
+  par_intervention_compliance = model_par[6]
+  coverage=model_par[7]
+  
+  I = x[1]
+  I_N = x[2]
+  
+  S = x[3]
+  S_N = x[4]
+  
+  Df = matrix(NA, length(x), length(x))
+  Df[1,1]= S * (R0_N  + R0_O) -1
+  Df[1,2]= S * (R0_N*phi_alpha  + R0_O)
+  Df[1,3]= (R0_N * (I + I_N*phi_alpha) + R0_O * (I + I_N))
+  Df[1,4]= 0
+  
+  Df[2,1]= S_N * (phi_beta * R0_N  + R0_O)
+  Df[2,2]= S_N * (phi_beta * phi_alpha * R0_N  + R0_O) - 1
+  Df[2,3]= 0
+  Df[2,4]= (phi_beta * R0_N * (I + I_N*phi_alpha) + R0_O * (I + I_N))
+  
+  Df[3,1]= 1
+  Df[3,2]= 0
+  Df[3,3]= 1
+  Df[3,4]= 0
+  
+  Df[4,1]= 0
+  Df[4,2]= 1
+  Df[4,3]= 0
+  Df[4,4]= 1
+  
+  return(Df)
+  
+}
+
+
+simulate = function(par_in){
+  
+  par_baseline_condition = par_in[1]
+  par_intervention_compliance = par_in[2]
+  R0 = par_in[3]
+  R0_ratio = par_in[4]
+  efficacy_alpha = par_in[5]
+  efficacy_beta= par_in[6]
+  coverage=par_in[7]
+  
+  rho_vec = c(1-par_intervention_compliance, par_intervention_compliance)
+  baseline_adherence_vec = c(1-par_baseline_condition, par_baseline_condition)
+  
+  total_SI = (1-par_baseline_condition)*(1-coverage) + (1-par_intervention_compliance)*coverage
+  total_SI_N = par_baseline_condition*(1-coverage) + par_intervention_compliance * coverage
+  
+  prev= 1-1/R0 #guess
+  # x0 =c(I, I_N, S, S_N)
+  x0 = c(prev*total_SI,prev*total_SI_N,(1-prev)*total_SI,(1-prev)*total_SI_N)
+  
+  R0_N= R0*R0_ratio
+  R0_O = R0*(1-R0_ratio)
+  model_par = c(efficacy_alpha,efficacy_beta, R0_N,R0_O,
+                par_baseline_condition,par_intervention_compliance,
+                coverage)
+  
+  steady_state = abs(nleqslv(x=x0,fn=model,jac = model_Jac, method="Broyden",model_par=model_par)$x)
+  
+  
+  
+  prevalence  = sum(steady_state[1:2])
+  
+  return(prevalence)
 }
 
 fill_matrix=function(par0,factor1,factor2,res,intervention_effectiveness_actual){
@@ -94,7 +160,7 @@ fill_matrix=function(par0,factor1,factor2,res,intervention_effectiveness_actual)
             factor1_temp=par[1]}
             if (factor1=="compliance"){par[2] = seq(0,1,length.out = res)[i]
             factor1_temp=par[2]}
-            if (factor1=="R0"){par[3] = seq(1,1.5,length.out = res)[i]
+            if (factor1=="R0"){par[3] = seq(1,2,length.out = res)[i]
             factor1_temp=par[3]}
             if (factor1=="completeness"){par[4] = seq(0,1,length.out = res)[i]
             factor1_temp=par[4]}
@@ -108,7 +174,7 @@ fill_matrix=function(par0,factor1,factor2,res,intervention_effectiveness_actual)
             factor2_temp=par[1]}
             if (factor2=="compliance"){par[2] = seq(0,1,length.out = res)[j]
             factor2_temp=par[2]}
-            if (factor2=="R0"){par[3] = seq(1,1.5,length.out = res)[j]
+            if (factor2=="R0"){par[3] = seq(1,2,length.out = res)[j]
             factor2_temp=par[3]}
             if (factor2=="completeness"){par[4] = seq(0,1,length.out = res)[j]
             factor2_temp=par[4]}
@@ -124,12 +190,12 @@ fill_matrix=function(par0,factor1,factor2,res,intervention_effectiveness_actual)
                 prev_control = simulate(c(par[1:6],0))
                 if (prev_control<1E-4){
                     change_intervention_effectiveness = NA
-                }
-                prev_intervention = simulate(par)
-                relative_risk_counterfactual = prev_intervention/prev_control
-                intervention_effectiveness_counterfactual = 1- relative_risk_counterfactual
-                
-                change_intervention_effectiveness = 100*(intervention_effectiveness_counterfactual-intervention_effectiveness_actual)
+                }else{ #This got fixed
+                  prev_intervention = simulate(par)
+                  relative_risk_counterfactual = prev_intervention/prev_control
+                  intervention_effectiveness_counterfactual = 1- relative_risk_counterfactual
+                  
+                  change_intervention_effectiveness = 100*(intervention_effectiveness_counterfactual-intervention_effectiveness_actual)}
             }
             
             matrix[j+(i-1)*res,]=c(factor2_temp, factor1_temp, change_intervention_effectiveness)
@@ -210,17 +276,20 @@ ui <- fluidPage(
             )
         ), # tab
     tabPanel("About",
-             mainPanel(fluidRow(column(12, includeMarkdown(rmarkdown::render("about.Rmd")))))
+             mainPanel(fluidRow(column(12, includeHTML("about.html"))))
     ) # second tab
 )
 )
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, session) {
 
+    session$onSessionEnded(function() {
+      stopApp()
+    })  
     
     data_one <- reactive({
         
-        par = c(as.numeric(input$par_baseline_condition)/100, 
+        par_use = c(as.numeric(input$par_baseline_condition)/100, 
                 as.numeric(input$par_intervention_compliance)/100,
                 as.numeric(input$R0), 
                 as.numeric(input$R0_ratio)/100, 
@@ -230,13 +299,13 @@ server <- function(input, output) {
         
         
         
-        
         #Baseline control
-        prev_control = simulate(c(par[1:6],0))
+        prev_control = simulate(c(par_use[1:6],0))
+        
         #Baseline intervention
-        prev_intervention = simulate(par)
+        prev_intervention = simulate(par_use)
         #Baseline max intervention
-        prev_intervention_max = simulate(c(par[1],1,par[3:4],(1-as.numeric(input$flag)),as.numeric(input$flag),par[7]))
+        prev_intervention_max = simulate(c(par_use[1],1,par_use[3:4],(1-as.numeric(input$flag)),as.numeric(input$flag),par_use[7]))
         
         data_plot1=as.data.frame(cbind(c("Control","Control","Intervention","Intervention"),
                                        100*c(prev_intervention_max,prev_control-prev_intervention_max,
@@ -447,7 +516,7 @@ server <- function(input, output) {
                 matrix4= fill_matrix(par,"conditions","efficacy",res,intervention_effectiveness_actual)
                 p4= ggplot()+
                   geom_raster(data=matrix4, aes(x=x,y=y,fill=value))+
-                  annotate("point",x=c(par[5],par[6])[par[5]+1],y=par[1],pch=19,col="white",size=3)+
+                  annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[1],pch=19,col="white",size=3)+
                   scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
                   guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
                   xlab("Efficacy")+ylab("")+#+ylab("Baseline conditions")+
@@ -497,7 +566,7 @@ server <- function(input, output) {
                 matrix8= fill_matrix(par,"compliance","efficacy",res,intervention_effectiveness_actual)
                 p8= ggplot()+
                   geom_raster(data=matrix8, aes(x=x,y=y,fill=value))+
-                  annotate("point",x=c(par[5],par[6])[par[5]+1],y=par[2],pch=19,col="white",size=3)+
+                  annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[2],pch=19,col="white",size=3)+
                   scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
                   guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
                   # xlab("Efficacy")+ylab("Compliance")+
@@ -536,7 +605,7 @@ server <- function(input, output) {
                 matrix11= fill_matrix(par,"R0","efficacy",res,intervention_effectiveness_actual)
                 p11= ggplot()+
                   geom_raster(data=matrix11, aes(x=x,y=y,fill=value))+
-                  annotate("point",x=c(par[5],par[6])[par[5]+1],y=par[3],pch=19,col="white",size=3)+
+                  annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[3],pch=19,col="white",size=3)+
                   scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
                   guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
                   # xlab("Efficacy")+ylab(expression(R[0]))+
@@ -562,7 +631,7 @@ server <- function(input, output) {
                 matrix13= fill_matrix(par,"completeness","efficacy",res,intervention_effectiveness_actual)
                 p13= ggplot()+
                   geom_raster(data=matrix13, aes(x=x,y=y,fill=value))+
-                  annotate("point",x=c(par[5],par[6])[par[5]+1],y=par[4],pch=19,col="white",size=3)+
+                  annotate("point",x=c(par[5],par[6])[as.numeric(input$flag)+1],y=par[4],pch=19,col="white",size=3)+
                   scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
                   guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
                   # xlab("Efficacy")+ylab("Intervenable fraction")+
@@ -588,7 +657,7 @@ server <- function(input, output) {
                 matrix15= fill_matrix(par,"efficacy","coverage",res,intervention_effectiveness_actual)
                 p15= ggplot()+
                   geom_raster(data=matrix15, aes(x=x,y=y,fill=value))+
-                  annotate("point",x=par[7],y=c(par[5],par[6])[par[5]+1],pch=19,col="white",size=3)+
+                  annotate("point",x=par[7],y=c(par[5],par[6])[as.numeric(input$flag)+1],pch=19,col="white",size=3)+
                   scale_fill_gradientn(colors = viridis(10),values=rescale(c(-1,-0.5,-0.25,0,0.25,0.5,1)),limits=col_limits)+
                   guides(fill=guide_colorbar(title="Change in\nintervention\neffectiveness\n(percentage points)        "))+
                   xlab("")+ylab("Efficacy")+
